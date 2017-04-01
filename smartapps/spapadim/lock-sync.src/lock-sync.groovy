@@ -21,14 +21,13 @@ definition(
 )
 
 preferences {
-    section("Monitor this lock"){
-        input "thelock", "capability.lock", required: true
+    section("Locks to keep synchronized"){
+        input "master", "capability.lock", title: "Master lock (trigger)"
+        input "slaves", "capability.lock", title: "Slave locks", multiple: true
     }
-    section("Also lock these doors together...") {
-        input "locks", "capability.lock", multiple: true, required: false
-    }
-    section("Also unlock these doors together...") {
-        input "unlocks", "capability.lock", multiple: true, required: false
+    section("Actions to synchronize") {
+        input "syncLock", "bool", title: "Lock slaves when master locks", defaultValue: true
+        input "syncUnlock", "bool", title: "Unlock slaves when master locks", defaultValue: false
     }
     section("Only if one of these people is present...") {
         input "people", "capability.presenceSensor", multiple: true, required: false
@@ -38,11 +37,11 @@ preferences {
 
 
 def initialize() {
-    if (locks) {
-      subscribe(thelock, "lock", lockChangedHandler)
+    if (syncLock) {
+        subscribe(master, "lock", lockChangedHandler)
     }
-    if (unlocks) {
-      subscribe(thelock, "unlock", lockChangedHandler)
+    if (syncUnlock) {
+        subscribe(master, "unlock", lockChangedHandler)
     }
 }
 
@@ -58,9 +57,10 @@ def updated() {
 def lockChangedHandler(evt) {
     log.debug "$evt.value: $evt, $settings"
     def anyoneThere = (people == null || people.any{ it.currentPresence == "present" })
-    if ((anyoneThere || alwaysLock) && evt.value == "locked") {
-        locks?.lock()
-    } else if (anyoneThere && evt.value == "unlocked") {
-        unlocks?.unlock()
+    log.debug "anyoneThere: $anyoneThere"
+    if (syncLock && (anyoneThere || alwaysLock) && evt.value == "locked") {
+        slaves.lock()
+    } else if (syncUnlock && anyoneThere && evt.value == "unlocked") {
+        slaves.unlock()
     }
 }
