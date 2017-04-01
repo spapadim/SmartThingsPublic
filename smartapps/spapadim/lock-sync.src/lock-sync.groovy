@@ -30,7 +30,10 @@ preferences {
     section("Also unlock these doors together...") {
         input "unlocks", "capability.lock", multiple: true, required: false
     }
-    // TODO: Optional time and day restrictions
+    section("Only if one of these people is present...") {
+        input "people", "capability.presenceSensor", multiple: true, required: false
+        input "alwaysLock", "bool", title: "Always lock", defaultValue: true
+    }
 }
 
 
@@ -54,9 +57,10 @@ def updated() {
 
 def lockChangedHandler(evt) {
     log.debug "$evt.value: $evt, $settings"
-    if (evt.value == "locked") {
+    def anyoneThere = (people == null || people.any{ it.currentPresence == "present" })
+    if ((anyoneThere || alwaysLock) && evt.value == "locked") {
         locks?.lock()
-    } else if (evt.value == "unlocked") {
+    } else if (anyoneThere && evt.value == "unlocked") {
         unlocks?.unlock()
     }
 }
